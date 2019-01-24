@@ -75,13 +75,14 @@ namespace log4cxx {
           int minIndex;
           int maxIndex;
           bool explicitActiveFile;
+          LogString fileNames[13];
 
           /**
            * It's almost always a bad idea to have a large window size, say over 12.
            */
           enum { MAX_WINDOW_SIZE = 12 };
 
-          bool purge(int purgeStart, int maxIndex, log4cxx::helpers::Pool& p) const;
+          bool purge(int purgeStart, int maxIndex, log4cxx::helpers::Pool& p);
 
         public:
 

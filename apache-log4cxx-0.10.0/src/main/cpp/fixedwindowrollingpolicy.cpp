@@ -32,6 +32,11 @@
 #include <log4cxx/rolling/gzcompressaction.h>
 #include <log4cxx/rolling/zipcompressaction.h>
 #include <log4cxx/pattern/integerpatternconverter.h>
+#include <log4cxx/pattern/filedatepatternconverter.h>
+#include <log4cxx/helpers/date.h>
+#include <apr_time.h>
+#include <string>
+#include <iostream>
 
 using namespace log4cxx;
 using namespace log4cxx::rolling;
@@ -86,7 +91,10 @@ void FixedWindowRollingPolicy::activateOptions(Pool& p) {
     maxIndex = minIndex + MAX_WINDOW_SIZE;
   }
 
-  PatternConverterPtr itc = getIntegerPatternConverter();
+  //PatternConverterPtr itc = getIntegerPatternConverter();
+
+  //if (itc == NULL)
+  PatternConverterPtr itc = getDatePatternConverter();
 
   if (itc == NULL) {
     throw IllegalStateException();
@@ -99,6 +107,10 @@ void FixedWindowRollingPolicy::activateOptions(Pool& p) {
 RolloverDescriptionPtr FixedWindowRollingPolicy::initialize(
   const LogString& file, bool append, log4cxx::helpers::Pool& p) {
   LogString newActiveFile(file);
+
+  for (int i = 0; i <= maxIndex; ++i)
+      fileNames[i] = "empty";
+
   explicitActiveFile = false;
 
   if (file.length() > 0) {
@@ -107,8 +119,10 @@ RolloverDescriptionPtr FixedWindowRollingPolicy::initialize(
   }
 
   if (!explicitActiveFile) {
+    apr_time_t n = apr_time_now();
     LogString buf;
-    ObjectPtr obj(new Integer(minIndex));
+    ObjectPtr obj(new Date(n));
+    //ObjectPtr obj(new Integer(minIndex));
     formatFileName(obj, buf, p);
     newActiveFile = buf;
   }
@@ -124,7 +138,11 @@ RolloverDescriptionPtr FixedWindowRollingPolicy::initialize(
 RolloverDescriptionPtr FixedWindowRollingPolicy::rollover(
     const LogString& currentFileName,
     log4cxx::helpers::Pool& p) {
+
   RolloverDescriptionPtr desc;
+  apr_time_t n = apr_time_now();
+  //ObjectPtr obj(new Date(n));
+
   if (maxIndex >= 0) {
     int purgeStart = minIndex;
 
@@ -132,13 +150,18 @@ RolloverDescriptionPtr FixedWindowRollingPolicy::rollover(
       purgeStart++;
     }
 
+
     if (!purge(purgeStart, maxIndex, p)) {
       return desc;
     }
 
+
     LogString buf;
-    ObjectPtr obj(new Integer(purgeStart));
+    //ObjectPtr obj(new Integer(purgeStart));
+      ObjectPtr obj(new Date(n));
     formatFileName(obj, buf, p);
+
+    fileNames[1] = buf;
 
     LogString renameTo(buf);
     LogString compressedName(renameTo);
@@ -191,13 +214,18 @@ int FixedWindowRollingPolicy::getMinIndex() const {
  * index will be deleted if needed.
  * @return true if purge was successful and rollover should be attempted.
  */
-bool FixedWindowRollingPolicy::purge(int lowIndex, int highIndex, Pool& p) const {
+bool FixedWindowRollingPolicy::purge(int lowIndex, int highIndex, Pool& p) {
   int suffixLength = 0;
 
+
   std::vector<FileRenameActionPtr> renames;
+  std::vector<int> nameIndexes;
   LogString buf;
   ObjectPtr obj = new Integer(lowIndex);
+
   formatFileName(obj, buf, p);
+
+  buf = fileNames[lowIndex];
 
   LogString lowFilename(buf);
 
@@ -248,6 +276,8 @@ bool FixedWindowRollingPolicy::purge(int lowIndex, int highIndex, Pool& p) const
       obj = new Integer(i + 1);
       formatFileName(obj, buf, p);
 
+      buf = fileNames[i + 1];
+
       LogString highFilename(buf);
       LogString renameTo(highFilename);
 
@@ -256,13 +286,16 @@ bool FixedWindowRollingPolicy::purge(int lowIndex, int highIndex, Pool& p) const
           highFilename.substr(0, highFilename.length() - suffixLength);
       }
 
-      renames.push_back(new FileRenameAction(*toRename, File().setPath(renameTo), true));
+      //renames.push_back(new FileRenameAction(*toRename, File().setPath(renameTo), true));
+      nameIndexes.push_back(i);
       lowFilename = highFilename;
     } else {
       break;
     }
   }
-
+    for(std::vector<int>::reverse_iterator iter = nameIndexes.rbegin(); iter != nameIndexes.rend(); ++iter) {
+      fileNames[(*iter) + 1] = fileNames[(*iter)];
+    }
   //
   //   work renames backwards
   //
@@ -291,5 +324,7 @@ log4cxx::pattern::PatternMap FixedWindowRollingPolicy::getFormatSpecifiers() con
   PatternMap specs;
   RULES_PUT("i", IntegerPatternConverter);
   RULES_PUT("index", IntegerPatternConverter);
+  RULES_PUT("d", FileDatePatternConverter);
+  RULES_PUT("date", FileDatePatternConverter);
   return specs;
 }

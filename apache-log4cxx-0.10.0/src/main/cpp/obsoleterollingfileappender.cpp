@@ -144,7 +144,8 @@ void RollingFileAppender::activateOptions(Pool& pool) {
       new log4cxx::rolling::FixedWindowRollingPolicy());
   rolling->setMinIndex(1);
   rolling->setMaxIndex(maxBackupIndex);
-  rolling->setFileNamePattern(getFile() + LOG4CXX_STR(".%i"));
+  //rolling->setFileNamePattern(getFile() + LOG4CXX_STR(".%i"));
+  rolling->setFileNamePattern(getFile() + LOG4CXX_STR(".%d{yyyy-MM-dd_HH:mm:ss.SSS}"));
   rolling->activateOptions(pool);
   setRollingPolicy(rolling);
 
